@@ -146,6 +146,8 @@ class WxPay(object):
         详细规则参考 https://pay.weixin.qq.com/wiki/doc/api/jsapi.php?chapter=7_7&index=6
         """
         kwargs.setdefault("trade_type", "JSAPI")
+        # 下面这行代码生成了随机的订单号，如果你有保存订单号的需求，建议删掉下面这行代码，
+        # 外部调用js_api函数时，传入此参数out_trade_no并附带自己生成的订单号
         kwargs.setdefault("out_trade_no", self.nonce_str())
         raw = self.unified_order(**kwargs)
         package = "prepay_id={0}".format(raw["prepay_id"])
