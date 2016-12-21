@@ -64,6 +64,6 @@
 
     wx_pay.check(dict(openid="123", sign="SIGN"))
 
-生成微信前端JS参数
+生成微信前端JS配置参数
 
-    print wx_pay.jsapi(openid="orU79wrXdrgNRNEZmoFD97rxGkb0", body=u"测试", out_trade_no=out_trade_no, total_fee=1)
+    详见example.py的wx_js_config方法，用来生成前端使用微信js的必要参数
