@@ -127,7 +127,7 @@ class WxPay(object):
         data.setdefault("appid", self.WX_APP_ID)
         data.setdefault("mch_id", self.WX_MCH_ID)
         data.setdefault("notify_url", self.WX_NOTIFY_URL)
-        data.setdefault("nonce_str", self.nonce_str())
+        data.setdefault("nonce_str", user_ip)
         if user_ip:
             data.setdefault("spbill_create_ip", self.remote_addr())
         data.setdefault("sign", self.sign(data))
