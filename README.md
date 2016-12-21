@@ -9,7 +9,7 @@
     from wx_pay import WxPay, WxPayError
 ```
 
-构造微信支付类，传入配置文件
+构造微信支付类，传入配置微信支付参数
 ```python
     wx_pay = WxPay(
         wx_app_id='WX_APP_ID', 
