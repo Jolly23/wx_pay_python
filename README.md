@@ -33,7 +33,7 @@
     wx_pay.send_red_pack(
         api_client_cert_path='/home/xxx/SERVER/ext_file/wx_2_pay_cert.pem',
         api_client_key_path='/home/xxx/SERVER/ext_file/wx_2_pay_key.pem',
-        send_name=u'微信支付测试',  # 红包名称
+        send_name=u'公众号发送红包测试',  # 红包名称
         re_openid=u'***to_user_openid***',  # 要接收红包的用户openid
         total_amount=100,  # total_fee 单位是 分， 100 = 1元, 最大499元
         wishing=u'感谢参与测试',  # 祝福语
