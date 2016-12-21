@@ -45,12 +45,12 @@
 
 查询订单
 ```python
-    raw = wx_pay.close_order(out_trade_no)
+    raw = wx_pay.order_query(out_trade_no=out_trade_no)
 ```
 
 关闭订单
 ```python
-    raw = wx_pay.order_query(out_trade_no=out_trade_no)
+    raw = wx_pay.close_order(out_trade_no)
 ```
 
 ## 工具函数
