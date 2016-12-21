@@ -74,3 +74,12 @@
 ```python
     详见example.py的wx_js_config方法，用来生成前端使用微信js的必要参数
 ```
+
+## License
+The MIT License(http://opensource.org/licenses/MIT)
+
+请自由地享受和参与开源
+
+## 贡献
+
+如果你有好的意见或建议，欢迎给我们提issue或pull request，为提升Python调用微信支付体验贡献力量
