@@ -25,6 +25,8 @@ lib64/
 parts/
 sdist/
 var/
+test_tools.py
+
 *.egg-info/
 .installed.cfg
 *.egg
