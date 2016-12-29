@@ -14,7 +14,7 @@ except ImportError:
 try:
     from flask import request
 except ImportError:
-    pass
+    request = None
 
 
 class WxPayError(Exception):
@@ -31,11 +31,8 @@ class WxPay(object):
         self.WX_NOTIFY_URL = wx_notify_url
 
     @staticmethod
-    def remote_addr():
-        try:
-            return request.remote_addr
-        except NameError:
-            return None
+    def user_ip_address():
+        return request.remote_addr if request else None
 
     @staticmethod
     def nonce_str():
@@ -90,7 +87,11 @@ class WxPay(object):
             resp = self.opener.open(req, timeout=20)
         except urllib2.HTTPError, e:
             resp = e
-        return self.to_dict(resp.read())
+        re_info = resp.read()
+        try:
+            return self.to_dict(re_info)
+        except ETree.ParseError:
+            return re_info
 
     def reply(self, msg, ok=True):
         code = "SUCCESS" if ok else "FAIL"
@@ -99,9 +100,13 @@ class WxPay(object):
     def unified_order(self, **data):
         """
         统一下单
-        out_trade_no、body、total_fee、trade_type必填
-        app_id, mchid, nonce_str自动填写
-        user_ip 在flask框架下可以自动填写
+        :param data: out_trade_no, body, total_fee, trade_type
+            out_trade_no: 商户订单号
+            body: 商品描述
+            total_fee: 标价金额, 整数, 单位 分
+            trade_type: 交易类型
+            user_ip 在flask框架下可以自动填写, 非flask框架需传入spbill_create_ip
+        :return: 统一下单生成结果
         """
         url = "https://api.mch.weixin.qq.com/pay/unifiedorder"
 
@@ -120,16 +125,15 @@ class WxPay(object):
             raise WxPayError(u"trade_type为JSAPI时，openid为必填参数")
         if data["trade_type"] == "NATIVE" and "product_id" not in data:
             raise WxPayError(u"trade_type为NATIVE时，product_id为必填参数")
-        user_ip = self.remote_addr()
-        if not user_ip:
-            if "spbill_create_ip" not in data:
-                raise WxPayError(u"当前未使用flask框架，缺少统一支付接口必填参数user_ip")
+        user_ip = self.user_ip_address()
+        if not user_ip and "spbill_create_ip" not in data:
+            raise WxPayError(u"当前未使用flask框架，缺少统一支付接口必填参数user_ip")
+
         data.setdefault("appid", self.WX_APP_ID)
         data.setdefault("mch_id", self.WX_MCH_ID)
         data.setdefault("notify_url", self.WX_NOTIFY_URL)
-        data.setdefault("nonce_str", user_ip)
-        if user_ip:
-            data.setdefault("spbill_create_ip", self.remote_addr())
+        data.setdefault("nonce_str", self.nonce_str())
+        data.setdefault("spbill_create_ip", user_ip)
         data.setdefault("sign", self.sign(data))
 
         raw = self.fetch(url, data)
@@ -140,15 +144,20 @@ class WxPay(object):
             raise WxPayError(err_msg)
         return raw
 
-    def js_api(self, **kwargs):
+    def js_pay_api(self, **kwargs):
         """
         生成给JavaScript调用的数据
         详细规则参考 https://pay.weixin.qq.com/wiki/doc/api/jsapi.php?chapter=7_7&index=6
+        :param kwargs: openid, body, total_fee
+            openid: 用户openid
+            body: 商品名称
+            total_fee: 标价金额, 整数, 单位 分
+            out_trade_no: 商户订单号, 若未传入则自动生成
+        :return:
         """
         kwargs.setdefault("trade_type", "JSAPI")
-        # 下面这行代码生成了随机的订单号，如果你有保存订单号的需求，建议删掉下面这行代码，
-        # 外部调用js_api函数时，传入此参数out_trade_no并附带自己生成的订单号
-        kwargs.setdefault("out_trade_no", self.nonce_str())
+        if "out_trade_no" not in kwargs:
+            kwargs.setdefault("out_trade_no", self.nonce_str())
         raw = self.unified_order(**kwargs)
         package = "prepay_id={0}".format(raw["prepay_id"])
         timestamp = int(time.time())
@@ -162,8 +171,12 @@ class WxPay(object):
     def order_query(self, **data):
         """
         订单查询
-        out_trade_no, transaction_id至少填一个
-        appid, mchid, nonce_str不需要填入
+        详细规则参考 https://pay.weixin.qq.com/wiki/doc/api/jsapi.php?chapter=9_2
+
+        :param data: out_trade_no, transaction_id至少填一个
+            out_trade_no: 商户订单号
+            transaction_id: 微信订单号
+        :return: 订单查询结果
         """
         url = "https://api.mch.weixin.qq.com/pay/orderquery"
 
@@ -179,50 +192,60 @@ class WxPay(object):
             raise WxPayError(raw["return_msg"])
         return raw
 
-    def close_order(self, out_trade_no, **data):
+    def close_order(self, out_trade_no):
         """
         关闭订单
-        transaction_id必填
-        appid, mchid, nonce_str不需要填入
+        详细规则参考 https://pay.weixin.qq.com/wiki/doc/api/jsapi.php?chapter=9_3
+
+        :param out_trade_no: 商户订单号
+        :return: 申请关闭订单结果
         """
         url = "https://api.mch.weixin.qq.com/pay/closeorder"
-
-        data.setdefault("out_trace_no", out_trade_no)
-        data.setdefault("appid", self.WX_APP_ID)
-        data.setdefault("mch_id", self.WX_MCH_ID)
-        data.setdefault("nonce_str", self.nonce_str())
-        data.setdefault("sign", self.sign(data))
-
+        data = {
+            'out_trade_no': out_trade_no,
+            'appid': self.WX_APP_ID,
+            'mch_id': self.WX_MCH_ID,
+            'nonce_str': self.nonce_str(),
+        }
+        data["sign"] = self.sign(data)
         raw = self.fetch(url, data)
         if raw["return_code"] == "FAIL":
             raise WxPayError(raw["return_msg"])
         return raw
 
-    def refund(self, **data):
+    def refund(self, api_client_cert_path, api_client_key_path, **data):
         """
         申请退款
-        out_trade_no、transaction_id至少填一个且
-        out_refund_no、total_fee、refund_fee、op_user_id为必填参数
-        appid、mchid、nonce_str不需要填入
+        详细规则参考 https://pay.weixin.qq.com/wiki/doc/api/jsapi.php?chapter=9_4
+
+        :param api_client_cert_path: 微信支付商户证书路径，此证书(apiclient_cert.pem)需要先到微信支付商户平台获取，下载后保存至服务器
+        :param api_client_key_path: 微信支付商户证书路径，此证书(apiclient_key.pem)需要先到微信支付商户平台获取，下载后保存至服务器
+        :param data: out_trade_no、transaction_id至少填一个, out_refund_no, total_fee, refund_fee
+            out_trade_no: 商户订单号
+            transaction_id: 微信订单号
+            out_refund_no: 商户退款单号（若未传入则自动生成）
+            total_fee: 订单金额
+            refund_fee: 退款金额
+        :return: 退款申请返回结果
         """
         url = "https://api.mch.weixin.qq.com/secapi/pay/refund"
         if "out_trade_no" not in data and "transaction_id" not in data:
             raise WxPayError(u"订单查询接口中，out_trade_no、transaction_id至少填一个")
-        if "out_refund_no" not in data:
-            raise WxPayError(u"退款申请接口中，缺少必填参数out_refund_no")
         if "total_fee" not in data:
             raise WxPayError(u"退款申请接口中，缺少必填参数total_fee")
         if "refund_fee" not in data:
             raise WxPayError(u"退款申请接口中，缺少必填参数refund_fee")
-        if "op_user_id" not in data:
-            raise WxPayError(u"退款申请接口中，缺少必填参数op_user_id")
+        if "out_refund_no" not in data:
+            data.setdefault("out_refund_no", self.nonce_str())
 
         data.setdefault("appid", self.WX_APP_ID)
         data.setdefault("mch_id", self.WX_MCH_ID)
+        data.setdefault("op_user_id", self.WX_MCH_ID)
         data.setdefault("nonce_str", self.nonce_str())
         data.setdefault("sign", self.sign(data))
 
-        raw = self.fetch(url, data)
+        req = requests.post(url, data=self.to_xml(data), cert=(api_client_cert_path, api_client_key_path))
+        raw = self.to_dict(req.content)
         if raw["return_code"] == "FAIL":
             raise WxPayError(raw["return_msg"])
         return raw
@@ -232,8 +255,15 @@ class WxPay(object):
         查询退款
         提交退款申请后，通过调用该接口查询退款状态。退款有一定延时，
         用零钱支付的退款20分钟内到账，银行卡支付的退款3个工作日后重新查询退款状态。
-        out_refund_no、out_trade_no、transaction_id、refund_id四个参数必填一个
-        appid、mchid、nonce_str不需要填入
+        详细规则参考 https://pay.weixin.qq.com/wiki/doc/api/jsapi.php?chapter=9_5
+
+        :param data: out_refund_no、out_trade_no、transaction_id、refund_id四个参数必填一个
+            out_refund_no: 商户退款单号
+            out_trade_no: 商户订单号
+            transaction_id: 微信订单号
+            refund_id: 微信退款单号
+
+        :return: 退款查询结果
         """
         url = "https://api.mch.weixin.qq.com/pay/refundquery"
         if "out_refund_no" not in data and "out_trade_no" not in data \
@@ -250,41 +280,44 @@ class WxPay(object):
             raise WxPayError(raw["return_msg"])
         return raw
 
-    def download_bill(self, bill_date, **data):
+    def download_bill(self, bill_date, bill_type=None):
         """
         下载对账单
-        bill_date为必填参数
-        appid、mchid、nonce_str不需要填入
+        详细规则参考 https://pay.weixin.qq.com/wiki/doc/api/jsapi.php?chapter=9_6
+
+        :param bill_date: 对账单日期
+        :param bill_type: 账单类型(ALL-当日所有订单信息，[默认]SUCCESS-当日成功支付的订单, REFUND-当日退款订单)
+
+        :return: 数据流形式账单
         """
         url = "https://api.mch.weixin.qq.com/pay/downloadbill"
-        if "bill_date" not in data:
-            raise WxPayError(u"对账单接口中，缺少必填参数bill_date")
-
-        data.setdefault("bill_date", bill_date)
-        data.setdefault("appid", self.WX_APP_ID)
-        data.setdefault("mch_id", self.WX_MCH_ID)
-        data.setdefault("nonce_str", self.nonce_str())
-        data.setdefault("sign", self.sign(data))
-
+        data = {
+            'bill_date': bill_date,
+            'bill_type': bill_type if bill_type else 'SUCCESS',
+            'appid': self.WX_APP_ID,
+            'mch_id': self.WX_MCH_ID,
+            'nonce_str': self.nonce_str()
+        }
+        data['sign'] = self.sign(data)
         raw = self.fetch(url, data)
-        if raw["return_code"] == "FAIL":
-            raise WxPayError(raw["return_msg"])
         return raw
 
     def send_red_pack(self, api_client_cert_path, api_client_key_path, **data):
         """
         发给用户微信红包
         详细规则参考 https://pay.weixin.qq.com/wiki/doc/api/tools/cash_coupon.php?chapter=13_4&index=3
-        参数：
-        api_client_cert_path： 微信支付商户证书路径，此证书(apiclient_cert.pem)需要先到微信支付商户平台获取，下载后保存至服务器。
-        api_client_key_path： 微信支付商户证书路径，此证书(apiclient_key.pem)需要先到微信支付商户平台获取，下载后保存至服务器。
-        send_name: 商户名称 例如: 天虹百货
-        re_openid: 用户openid
-        total_amount: 付款金额
-        wishing: 红包祝福语 例如: 感谢您参加猜灯谜活动，祝您元宵节快乐！
-        client_ip: 调用接口的机器Ip地址, 注：此地址为服务器地址
-        act_name: 活动名称 例如: 猜灯谜抢红包活动
-        remark: 备注 例如: 猜越多得越多，快来抢！
+
+        :param api_client_cert_path: 微信支付商户证书路径，此证书(apiclient_cert.pem)需要先到微信支付商户平台获取，下载后保存至服务器
+        :param api_client_key_path: 微信支付商户证书路径，此证书(apiclient_key.pem)需要先到微信支付商户平台获取，下载后保存至服务器
+        :param data: send_name, re_openid, total_amount, wishing, client_ip, act_name, remark
+            send_name: 商户名称 例如: 天虹百货
+            re_openid: 用户openid
+            total_amount: 付款金额
+            wishing: 红包祝福语 例如: 感谢您参加猜灯谜活动，祝您元宵节快乐！
+            client_ip: 调用接口的机器Ip地址, 注：此地址为服务器地址
+            act_name: 活动名称 例如: 猜灯谜抢红包活动
+            remark: 备注 例如: 猜越多得越多，快来抢！
+        :return: 红包发放结果
         """
         url = "https://api.mch.weixin.qq.com/mmpaymkttransfers/sendredpack"
         if "send_name" not in data:
@@ -313,7 +346,6 @@ class WxPay(object):
         data.setdefault("sign", self.sign(data))
 
         req = requests.post(url, data=self.to_xml(data), cert=(api_client_cert_path, api_client_key_path))
-
         raw = self.to_dict(req.content)
         if raw["return_code"] == "FAIL":
             raise WxPayError(raw["return_msg"])
