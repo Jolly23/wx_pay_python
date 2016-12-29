@@ -21,36 +21,81 @@
 
 创建订单
 ```python
-    pay_data = wx_pay.js_api(
+    data = wx_pay.js_pay_api(
             openid=u'***user_openid***',  # 付款用户openid
             body=u'***商品名称/付款显示名称***',  # 例如：饭卡充值100元
             total_fee=100  # total_fee 单位是 分， 100 = 1元
         )
 ```
-        
-给用户发红包
-```python
-    wx_pay.send_red_pack(
-        api_client_cert_path='/home/xxx/SERVER/ext_file/wx_2_pay_cert.pem',
-        api_client_key_path='/home/xxx/SERVER/ext_file/wx_2_pay_key.pem',
-        send_name=u'公众号发送红包测试',  # 红包名称
-        re_openid=u'***to_user_openid***',  # 要接收红包的用户openid
-        total_amount=100,  # total_fee 单位是 分， 100 = 1元, 最大499元
-        wishing=u'感谢参与测试',  # 祝福语
-        client_ip=u'222.222.222.222',  # 调用微信发红包接口服务器公网IP地址
-        act_name=u'微信支付测试系统',  # 活动名称
-        remark=u'感谢参与'  # 备注
-    )
-```
 
 查询订单
 ```python
-    raw = wx_pay.order_query(out_trade_no=out_trade_no)
+    data = wx_pay.order_query(
+        # 下面两个参数二选一
+        out_trade_no=u'***商户订单号***',
+        # transaction_id=u'***微信订单号***'
+    )
 ```
 
 关闭订单
 ```python
-    raw = wx_pay.close_order(out_trade_no)
+    data = wx_pay.close_order(
+        out_trade_no=u'***商户订单号***'
+    )
+```
+
+申请退款
+```python
+    data = wx_pay.refund(
+        # 证书获取方法请阅读：https://pay.weixin.qq.com/wiki/doc/api/tools/cash_coupon.php?chapter=4_3
+        # api_cert_path: 微信支付商户证书（apiclient_cert.pem）的本地保存路径
+        api_cert_path='/home/xxx/SERVER/ext_file/apiclient_cert.pem',
+        # api_cert_path: 微信支付商户证书（apiclient_key.pem）的本地保存路径
+        api_key_path='/home/xxx/SERVER/ext_file/apiclient_key.pem',
+        out_trade_no=u'***商户订单号***',
+        # out_refund_no=u'***商户退款单号***',   商户退款单号可自动生成，按需使用
+        total_fee=500,  # 支付时下单总金额 单位分
+        refund_fee=500,  # 要退款的金额 单位分
+    )
+```
+
+退款查询
+```python
+    data = wx_pay.refund_query(
+        # 以下传入参数四选一即可
+        out_refund_no=u'***商户退款单号***',
+        # out_trade_no=u'***商户订单号***',
+        # transaction_id=u'***微信订单号***',
+        # refund_id=u'***微信退款单号***',
+    )
+```
+
+下载对账单
+```python
+    print wx_pay.download_bill(
+        # 对账单日期
+        bill_date='20161228',  
+        # 账单类型(ALL-当日所有订单信息，[默认]SUCCESS-当日成功支付的订单, REFUND-当日退款订单)
+        bill_type='ALL'  
+    )
+```
+        
+给用户发红包
+```python
+    wx_pay.send_red_pack(
+        # 证书获取方法请阅读：https://pay.weixin.qq.com/wiki/doc/api/tools/cash_coupon.php?chapter=4_3
+        # api_cert_path: 微信支付商户证书（apiclient_cert.pem）的本地保存路径
+        api_cert_path='/home/xxx/SERVER/ext_file/apiclient_cert.pem',
+        # api_cert_path: 微信支付商户证书（apiclient_key.pem）的本地保存路径
+        api_key_path='/home/xxx/SERVER/ext_file/apiclient_key.pem',
+        send_name=u'***公众号发送红包测试***',  # 红包名称
+        re_openid=u'***to_user_openid***',  # 要接收红包的用户openid
+        total_amount=100,  # total_fee 单位是 分， 100 = 1元, 最大499元
+        wishing=u'***感谢参与测试***',  # 祝福语
+        client_ip=u'222.222.222.222',  # 调用微信发红包接口服务器公网IP地址
+        act_name=u'***微信支付测试系统***',  # 活动名称
+        remark=u'***感谢参与***'  # 备注
+    )
 ```
 
 ## 工具函数
@@ -71,8 +116,8 @@
 ```
 
 生成微信前端JS配置参数
-```python
-    详见example.py的wx_js_config方法，用来生成前端使用微信js的必要参数
+```text
+    详见example.py的wx_js_config方法, 用来生成前端使用微信js的必要参数
 ```
 
 ## License
