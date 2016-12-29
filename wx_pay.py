@@ -134,7 +134,7 @@ class WxPay(object):
             raise WxPayError(u"trade_type为NATIVE时，product_id为必填参数")
         user_ip = self.user_ip_address()
         if not user_ip and "spbill_create_ip" not in data:
-            raise WxPayError(u"当前未使用flask框架，缺少统一支付接口必填参数user_ip")
+            raise WxPayError(u"当前未使用flask框架，缺少统一支付接口必填参数spbill_create_ip")
 
         data.setdefault("appid", self.WX_APP_ID)
         data.setdefault("mch_id", self.WX_MCH_ID)
