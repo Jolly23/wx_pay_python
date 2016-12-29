@@ -35,9 +35,9 @@ class WxPay(object):
         return request.remote_addr if request else None
 
     @staticmethod
-    def nonce_str():
+    def nonce_str(length=32):
         char = string.ascii_letters + string.digits
-        return "".join(random.choice(char) for _ in range(32))
+        return "".join(random.choice(char) for _ in range(length))
 
     @staticmethod
     def to_utf8(raw):
