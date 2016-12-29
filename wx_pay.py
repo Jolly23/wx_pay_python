@@ -7,14 +7,14 @@ import urllib2
 import requests
 
 try:
-    from xml.etree import cElementTree as ETree
-except ImportError:
-    from xml.etree import ElementTree as ETree
-
-try:
     from flask import request
 except ImportError:
     request = None
+
+try:
+    from xml.etree import cElementTree as ETree
+except ImportError:
+    from xml.etree import ElementTree as ETree
 
 
 class WxPayError(Exception):
@@ -93,6 +93,11 @@ class WxPay(object):
         except ETree.ParseError:
             return re_info
 
+    def fetch_with_ssl(self, url, data, api_client_cert_path, api_client_key_path):
+        req = requests.post(url, data=self.to_xml(data),
+                            cert=(api_client_cert_path, api_client_key_path))
+        return self.to_dict(req.content)
+
     def reply(self, msg, ok=True):
         code = "SUCCESS" if ok else "FAIL"
         return self.to_xml(dict(return_code=code, return_msg=msg))
@@ -100,6 +105,8 @@ class WxPay(object):
     def unified_order(self, **data):
         """
         统一下单
+        详细规则参考 https://pay.weixin.qq.com/wiki/doc/api/jsapi.php?chapter=9_1
+
         :param data: out_trade_no, body, total_fee, trade_type
             out_trade_no: 商户订单号
             body: 商品描述
@@ -148,12 +155,13 @@ class WxPay(object):
         """
         生成给JavaScript调用的数据
         详细规则参考 https://pay.weixin.qq.com/wiki/doc/api/jsapi.php?chapter=7_7&index=6
+
         :param kwargs: openid, body, total_fee
             openid: 用户openid
             body: 商品名称
             total_fee: 标价金额, 整数, 单位 分
             out_trade_no: 商户订单号, 若未传入则自动生成
-        :return:
+        :return: 生成微信JS接口支付所需的信息
         """
         kwargs.setdefault("trade_type", "JSAPI")
         if "out_trade_no" not in kwargs:
@@ -213,13 +221,13 @@ class WxPay(object):
             raise WxPayError(raw["return_msg"])
         return raw
 
-    def refund(self, api_client_cert_path, api_client_key_path, **data):
+    def refund(self, api_cert_path, api_key_path, **data):
         """
         申请退款
         详细规则参考 https://pay.weixin.qq.com/wiki/doc/api/jsapi.php?chapter=9_4
 
-        :param api_client_cert_path: 微信支付商户证书路径，此证书(apiclient_cert.pem)需要先到微信支付商户平台获取，下载后保存至服务器
-        :param api_client_key_path: 微信支付商户证书路径，此证书(apiclient_key.pem)需要先到微信支付商户平台获取，下载后保存至服务器
+        :param api_cert_path: 微信支付商户证书路径，此证书(apiclient_cert.pem)需要先到微信支付商户平台获取，下载后保存至服务器
+        :param api_key_path: 微信支付商户证书路径，此证书(apiclient_key.pem)需要先到微信支付商户平台获取，下载后保存至服务器
         :param data: out_trade_no、transaction_id至少填一个, out_refund_no, total_fee, refund_fee
             out_trade_no: 商户订单号
             transaction_id: 微信订单号
@@ -244,8 +252,7 @@ class WxPay(object):
         data.setdefault("nonce_str", self.nonce_str())
         data.setdefault("sign", self.sign(data))
 
-        req = requests.post(url, data=self.to_xml(data), cert=(api_client_cert_path, api_client_key_path))
-        raw = self.to_dict(req.content)
+        raw = self.fetch_with_ssl(url, data, api_cert_path, api_key_path)
         if raw["return_code"] == "FAIL":
             raise WxPayError(raw["return_msg"])
         return raw
@@ -302,13 +309,13 @@ class WxPay(object):
         raw = self.fetch(url, data)
         return raw
 
-    def send_red_pack(self, api_client_cert_path, api_client_key_path, **data):
+    def send_red_pack(self, api_cert_path, api_key_path, **data):
         """
         发给用户微信红包
         详细规则参考 https://pay.weixin.qq.com/wiki/doc/api/tools/cash_coupon.php?chapter=13_4&index=3
 
-        :param api_client_cert_path: 微信支付商户证书路径，此证书(apiclient_cert.pem)需要先到微信支付商户平台获取，下载后保存至服务器
-        :param api_client_key_path: 微信支付商户证书路径，此证书(apiclient_key.pem)需要先到微信支付商户平台获取，下载后保存至服务器
+        :param api_cert_path: 微信支付商户证书路径，此证书(apiclient_cert.pem)需要先到微信支付商户平台获取，下载后保存至服务器
+        :param api_key_path: 微信支付商户证书路径，此证书(apiclient_key.pem)需要先到微信支付商户平台获取，下载后保存至服务器
         :param data: send_name, re_openid, total_amount, wishing, client_ip, act_name, remark
             send_name: 商户名称 例如: 天虹百货
             re_openid: 用户openid
@@ -345,25 +352,26 @@ class WxPay(object):
         data.setdefault("scene_id", 'PRODUCT_4')
         data.setdefault("sign", self.sign(data))
 
-        req = requests.post(url, data=self.to_xml(data), cert=(api_client_cert_path, api_client_key_path))
-        raw = self.to_dict(req.content)
+        raw = self.fetch_with_ssl(url, data, api_cert_path, api_key_path)
         if raw["return_code"] == "FAIL":
             raise WxPayError(raw["return_msg"])
         return raw
 
-    def enterprise_payment(self, api_client_cert_path, api_client_key_path, **data):
+    def enterprise_payment(self, api_cert_path, api_key_path, **data):
         """
         使用企业对个人付款功能
         详细规则参考 https://pay.weixin.qq.com/wiki/doc/api/tools/mch_pay.php?chapter=14_2
-        参数：
-        api_client_cert_path： 微信支付商户证书路径，此证书(apiclient_cert.pem)需要先到微信支付商户平台获取，下载后保存至服务器。
-        api_client_key_path： 微信支付商户证书路径，此证书(apiclient_key.pem)需要先到微信支付商户平台获取，下载后保存至服务器。
-        openid: 用户openid
-        check_name: 是否校验用户姓名
-        re_user_name: 如果 check_name 为True，则填写，否则不带此参数
-        amount: 金额: 企业付款金额，单位为分
-        desc: 企业付款描述信息
-        spbill_create_ip: 调用接口的机器Ip地址, 注：此地址为服务器地址
+
+        :param api_cert_path: 微信支付商户证书路径，此证书(apiclient_cert.pem)需要先到微信支付商户平台获取，下载后保存至服务器
+        :param api_key_path: 微信支付商户证书路径，此证书(apiclient_key.pem)需要先到微信支付商户平台获取，下载后保存至服务器
+        :param data: openid, check_name, re_user_name, amount, desc, spbill_create_ip
+            openid: 用户openid
+            check_name: 是否校验用户姓名
+            re_user_name: 如果 check_name 为True，则填写，否则不带此参数
+            amount: 金额: 企业付款金额，单位为分
+            desc: 企业付款描述信息
+            spbill_create_ip: 调用接口的机器Ip地址, 注：此地址为服务器地址
+        :return: 企业转账结果
         """
         url = "https://api.mch.weixin.qq.com/mmpaymkttransfers/promotion/transfers"
         if "openid" not in data:
@@ -372,7 +380,6 @@ class WxPay(object):
             raise WxPayError(u"企业付款申请接口中，缺少必填参数check_name")
         if data['check_name'] and "re_user_name" not in data:
             raise WxPayError(u"企业付款申请接口中，缺少必填参数re_user_name")
-
         if "amount" not in data:
             raise WxPayError(u"企业付款申请接口中，缺少必填参数amount")
         if "desc" not in data:
@@ -390,9 +397,7 @@ class WxPay(object):
                                                                                                 'NO_CHECK')
         data.setdefault("sign", self.sign(data))
 
-        req = requests.post(url, data=self.to_xml(data), cert=(api_client_cert_path, api_client_key_path))
-
-        raw = self.to_dict(req.content)
+        raw = self.fetch_with_ssl(url, data, api_cert_path, api_key_path)
         if raw["return_code"] == "FAIL":
             raise WxPayError(raw["return_msg"])
         return raw
