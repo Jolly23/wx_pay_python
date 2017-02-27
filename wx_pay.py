@@ -393,8 +393,7 @@ class WxPay(object):
         data.setdefault("partner_trade_no", u'{0}{1}{2}'.format(
             self.WX_MCH_ID, time.strftime('%Y%m%d', time.localtime(time.time())), self.random_num(10)
         ))
-        data.setdefault("check_name", 'FORCE_CHECK') if data['check_name'] else data.setdefault("check_name",
-                                                                                                'NO_CHECK')
+        data['check_name'] = 'FORCE_CHECK' if data['check_name'] else 'NO_CHECK'
         data.setdefault("sign", self.sign(data))
 
         raw = self.fetch_with_ssl(url, data, api_cert_path, api_key_path)
