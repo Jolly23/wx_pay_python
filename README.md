@@ -12,10 +12,13 @@
 构造微信支付类，传入配置微信支付参数
 ```python
     wx_pay = WxPay(
-        wx_app_id='WX_APP_ID', 
-        wx_mch_id='WX_MCH_ID', 
+        wx_app_id='WX_APP_ID',  # 微信平台appid
+        wx_mch_id='WX_MCH_ID',  # 微信支付商户号
         wx_mch_key='WX_MCH_KEY',
+        # wx_mch_key 微信支付重要密钥，请登录微信支付商户平台，在 账户中心-API安全-设置API密钥设置
         wx_notify_url='http://www.example.com/pay/weixin/notify'
+        # wx_notify_url 接受微信付款消息通知地址（通常比自己把支付成功信号写在js里要安全得多，推荐使用这个来接收微信支付成功通知）
+        # wx_notify_url 开发详见https://pay.weixin.qq.com/wiki/doc/api/jsapi.php?chapter=9_7
     )
 ```
 
@@ -80,7 +83,7 @@
     )
 ```
         
-给用户发红包
+给用户发红包（使用前需要到微信支付产品中心开通此功能）
 ```python
     wx_pay.send_red_pack(
         # 证书获取方法请阅读：https://pay.weixin.qq.com/wiki/doc/api/tools/cash_coupon.php?chapter=4_3
@@ -95,6 +98,25 @@
         client_ip=u'222.222.222.222',  # 调用微信发红包接口服务器公网IP地址
         act_name=u'***微信支付测试系统***',  # 活动名称
         remark=u'***感谢参与***'  # 备注
+    )
+```
+
+用企业付款功能给用户转账（使用前需要到微信支付产品中心开通此功能）
+```python
+    wx_pay.enterprise_payment(
+        # 证书获取方法请阅读：https://pay.weixin.qq.com/wiki/doc/api/tools/cash_coupon.php?chapter=4_3
+        # api_cert_path: 微信支付商户证书（apiclient_cert.pem）的本地保存路径
+        api_cert_path='/home/xxx/SERVER/ext_file/apiclient_cert.pem',
+        # api_cert_path: 微信支付商户证书（apiclient_key.pem）的本地保存路径
+        api_key_path='/home/xxx/SERVER/ext_file/apiclient_key.pem',
+        openid=u'***to_user_openid***',  # 要接收转账的用户openid
+        check_name=True,    # 是否强制校验收款用户姓名
+        # 如果check_name为True，下面re_user_name必须传入
+        # 如果check_name为False，请删除下一行参数re_user_name
+        re_user_name=u'***客户的真实姓名***',  # 校验不成功付款会是失败
+        amount=100,  # total_fee 单位是 分， 100 = 1元, 单用户 单笔上限／当日上限：2W／2W
+        desc=u'充值失败退款', # 付款原因
+        spbill_create_ip='222.222.222.222',  # 调用微信企业付款接口服务器公网IP地址
     )
 ```
 

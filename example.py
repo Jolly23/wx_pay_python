@@ -173,5 +173,32 @@ def send_red_pack_to_user_example():
     )
 
 
+def enterprise_payment_to_wallet():
+    """
+    直接转账到客户微信钱包
+    """
+    wx_pay = WxPay(
+        wx_app_id='WX_APP_ID',
+        wx_mch_id='WX_MCH_ID',
+        wx_mch_key='WX_MCH_KEY',
+        wx_notify_url='WX_NOTIFY_URL'
+    )
+    wx_pay.enterprise_payment(
+        # 证书获取方法请阅读：https://pay.weixin.qq.com/wiki/doc/api/tools/cash_coupon.php?chapter=4_3
+        # api_cert_path: 微信支付商户证书（apiclient_cert.pem）的本地保存路径
+        api_cert_path='/home/xxx/SERVER/ext_file/apiclient_cert.pem',
+        # api_cert_path: 微信支付商户证书（apiclient_key.pem）的本地保存路径
+        api_key_path='/home/xxx/SERVER/ext_file/apiclient_key.pem',
+        openid=u'***to_user_openid***',  # 要接收转账的用户openid
+        check_name=True,    # 是否强制校验收款用户姓名
+        # 如果check_name为True，下面re_user_name必须传入
+        # 如果check_name为False，请删除下一行参数re_user_name
+        re_user_name=u'***客户的真实姓名***',  # 校验不成功付款会是失败
+        amount=100,  # total_fee 单位是 分， 100 = 1元, 单用户 单笔上限／当日上限：2W／2W
+        desc=u'充值失败退款', # 付款原因
+        spbill_create_ip='222.222.222.222',  # 调用微信企业付款接口服务器公网IP地址
+    )
+
+
 if __name__ == "__main__":
     pass
