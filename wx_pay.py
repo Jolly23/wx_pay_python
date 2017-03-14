@@ -31,6 +31,7 @@ class WxPay(object):
         self.WX_NOTIFY_URL = wx_notify_url
         #打开之后为沙盘模式，不会真实扣款
         self.sandboxnew = False
+        self.sandboxed=False
 
     @staticmethod
     def user_ip_address():
@@ -140,7 +141,9 @@ class WxPay(object):
         user_ip = self.user_ip_address()
         if not user_ip and "spbill_create_ip" not in data:
             raise WxPayError(u"当前未使用flask框架，缺少统一支付接口必填参数spbill_create_ip")
-
+        if self.sandboxnew:
+            data["cost"] = 101
+            data["total_fee"] = 101
         data.setdefault("appid", self.WX_APP_ID)
         data.setdefault("mch_id", self.WX_MCH_ID)
         data.setdefault("notify_url", self.WX_NOTIFY_URL)
@@ -406,3 +409,22 @@ class WxPay(object):
         if raw["return_code"] == "FAIL":
             raise WxPayError(raw["return_msg"])
         return raw
+
+    #调用此方法打开沙盒模式
+    def open_sandbox(self):
+        self.sandboxnew = True
+        if self.sandboxed:
+            return
+        url = "https://api.mch.weixin.qq.com/sandboxnew/pay/getsignkey"
+        data={}
+        data.setdefault("mch_id", self.WX_MCH_ID)
+        data.setdefault("nonce_str", self.nonce_str())
+        data.setdefault("sign", self.sign(data))
+
+        raw = self.fetch(url, data)
+        if raw["return_code"] == "FAIL":
+            raise WxPayError(raw["return_msg"])
+        self.WX_MCH_KEY = raw["sandbox_signkey"]
+        self.sandboxed =True
+        return
+
