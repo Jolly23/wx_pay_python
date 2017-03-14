@@ -29,6 +29,8 @@ class WxPay(object):
         self.WX_MCH_ID = wx_mch_id
         self.WX_MCH_KEY = wx_mch_key
         self.WX_NOTIFY_URL = wx_notify_url
+        #打开之后为沙盘模式，不会真实扣款
+        self.sandboxnew = False
 
     @staticmethod
     def user_ip_address():
@@ -64,6 +66,9 @@ class WxPay(object):
         https://pay.weixin.qq.com/wiki/doc/api/jsapi.php?chapter=4_3
         """
         raw = [(k, str(raw[k]) if isinstance(raw[k], (int, float)) else raw[k]) for k in sorted(raw.keys())]
+        for kv in raw:
+            print kv
+
         s = "&".join("=".join(kv) for kv in raw if kv[1])
         s += "&key={0}".format(self.WX_MCH_KEY)
         return hashlib.md5(self.to_utf8(s)).hexdigest().upper()
@@ -115,7 +120,7 @@ class WxPay(object):
             user_ip 在flask框架下可以自动填写, 非flask框架需传入spbill_create_ip
         :return: 统一下单生成结果
         """
-        url = "https://api.mch.weixin.qq.com/pay/unifiedorder"
+        url = "https://api.mch.weixin.qq.com%s/pay/unifiedorder" % ( "/sandboxnew" if self.sandboxnew else "" )
 
         # 必填参数
         if "out_trade_no" not in data:
@@ -167,14 +172,15 @@ class WxPay(object):
         if "out_trade_no" not in kwargs:
             kwargs.setdefault("out_trade_no", self.nonce_str())
         raw = self.unified_order(**kwargs)
-        package = "prepay_id={0}".format(raw["prepay_id"])
+        prepay_id = raw["prepay_id"]
+        package = "prepay_id={0}".format(prepay_id)
         timestamp = int(time.time())
         nonce_str = self.nonce_str()
         raw = dict(appId=self.WX_APP_ID, timeStamp=timestamp,
                    nonceStr=nonce_str, package=package, signType="MD5")
         sign = self.sign(raw)
         return dict(package=package, appId=self.WX_APP_ID,
-                    timeStamp=timestamp, nonceStr=nonce_str, sign=sign)
+                    timeStamp=timestamp, nonceStr=nonce_str, sign=sign) , prepay_id
 
     def order_query(self, **data):
         """
@@ -186,7 +192,7 @@ class WxPay(object):
             transaction_id: 微信订单号
         :return: 订单查询结果
         """
-        url = "https://api.mch.weixin.qq.com/pay/orderquery"
+        url = "https://api.mch.weixin.qq.com%s/pay/orderquery" % ( "/sandboxnew" if self.sandboxnew else "" )
 
         if "out_trade_no" not in data and "transaction_id" not in data:
             raise WxPayError(u"订单查询接口中，out_trade_no、transaction_id至少填一个")
@@ -208,7 +214,7 @@ class WxPay(object):
         :param out_trade_no: 商户订单号
         :return: 申请关闭订单结果
         """
-        url = "https://api.mch.weixin.qq.com/pay/closeorder"
+        url = "https://api.mch.weixin.qq.com%s/pay/closeorder" % ( "/sandboxnew" if self.sandboxnew else "" )
         data = {
             'out_trade_no': out_trade_no,
             'appid': self.WX_APP_ID,
@@ -236,7 +242,7 @@ class WxPay(object):
             refund_fee: 退款金额
         :return: 退款申请返回结果
         """
-        url = "https://api.mch.weixin.qq.com/secapi/pay/refund"
+        url = "https://api.mch.weixin.qq.com%s/secapi/pay/refund" % ( "/sandboxnew" if self.sandboxnew else "" )
         if "out_trade_no" not in data and "transaction_id" not in data:
             raise WxPayError(u"订单查询接口中，out_trade_no、transaction_id至少填一个")
         if "total_fee" not in data:
@@ -272,7 +278,7 @@ class WxPay(object):
 
         :return: 退款查询结果
         """
-        url = "https://api.mch.weixin.qq.com/pay/refundquery"
+        url = "https://api.mch.weixin.qq.com%s/pay/refundquery" % ( "/sandboxnew" if self.sandboxnew else "" )
         if "out_refund_no" not in data and "out_trade_no" not in data \
                 and "transaction_id" not in data and "refund_id" not in data:
             raise WxPayError(u"退款查询接口中，out_refund_no、out_trade_no、transaction_id、refund_id四个参数必填一个")
@@ -297,7 +303,7 @@ class WxPay(object):
 
         :return: 数据流形式账单
         """
-        url = "https://api.mch.weixin.qq.com/pay/downloadbill"
+        url = "https://api.mch.weixin.qq.com%s/pay/downloadbill"  % ( "/sandboxnew" if self.sandboxnew else "" )
         data = {
             'bill_date': bill_date,
             'bill_type': bill_type if bill_type else 'SUCCESS',
@@ -326,7 +332,7 @@ class WxPay(object):
             remark: 备注 例如: 猜越多得越多，快来抢！
         :return: 红包发放结果
         """
-        url = "https://api.mch.weixin.qq.com/mmpaymkttransfers/sendredpack"
+        url = "https://api.mch.weixin.qq.com%s/mmpaymkttransfers/sendredpack"  % ( "/sandboxnew" if self.sandboxnew else "" )
         if "send_name" not in data:
             raise WxPayError(u"向用户发送红包接口中，缺少必填参数send_name")
         if "re_openid" not in data:
@@ -373,7 +379,7 @@ class WxPay(object):
             spbill_create_ip: 调用接口的机器Ip地址, 注：此地址为服务器地址
         :return: 企业转账结果
         """
-        url = "https://api.mch.weixin.qq.com/mmpaymkttransfers/promotion/transfers"
+        url = "https://api.mch.weixin.qq.com%s/mmpaymkttransfers/promotion/transfers" % ( "/sandboxnew" if self.sandboxnew else "" )
         if "openid" not in data:
             raise WxPayError(u"企业付款申请接口中，缺少必填参数openid")
         if "check_name" not in data:
