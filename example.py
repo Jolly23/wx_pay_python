@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from flask import jsonify
-from time import time
 from hashlib import sha1
+from time import time
+
+from flask import jsonify
 
 from wx_pay import WxPay, WxPayError
 
@@ -190,12 +191,30 @@ def enterprise_payment_to_wallet():
         # api_cert_path: 微信支付商户证书（apiclient_key.pem）的本地保存路径
         api_key_path='/home/xxx/SERVER/ext_file/apiclient_key.pem',
         openid=u'***to_user_openid***',  # 要接收转账的用户openid
-        check_name=True,    # 是否强制校验收款用户姓名
+        check_name=True,  # 是否强制校验收款用户姓名
         # 如果check_name为True，下面re_user_name必须传入
         # 如果check_name为False，请删除下一行参数re_user_name
         re_user_name=u'***客户的真实姓名***',  # 校验不成功付款会是失败
         amount=100,  # total_fee 单位是 分， 100 = 1元, 单用户 单笔上限／当日上限：2W／2W
-        desc=u'充值失败退款', # 付款原因
+        desc=u'充值失败退款',  # 付款原因
+        spbill_create_ip='222.222.222.222',  # 调用微信企业付款接口服务器公网IP地址
+    )
+
+
+def swiping_card_example():
+    """
+       刷卡支付 example
+    """
+    wx_pay = WxPay(
+        wx_app_id='WX_APP_ID',
+        wx_mch_id='WX_MCH_ID',
+        wx_mch_key='WX_MCH_KEY',
+        wx_notify_url='http://www.example.com/pay/weixin/notify'
+    )
+    wx_pay.swiping_card_payment(
+        body=u'***商品名称/付款显示名称***',  # 例如：综合超市
+        total_fee=100,  # total_fee 消费金额 单位是 分
+        auth_code='131336161431593669',  # 获取到的客户微信付款码
         spbill_create_ip='222.222.222.222',  # 调用微信企业付款接口服务器公网IP地址
     )
 

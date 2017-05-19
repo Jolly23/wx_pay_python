@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-import time
-import string
-import random
 import hashlib
+import random
+import string
+import time
 import urllib2
+
 import requests
 
 try:
@@ -399,4 +400,46 @@ class WxPay(object):
         raw = self.fetch_with_ssl(url, data, api_cert_path, api_key_path)
         if raw["return_code"] == "FAIL":
             raise WxPayError(raw["return_msg"])
+        return raw
+
+    def swiping_card_payment(self, **data):
+        """
+        提交刷卡支付
+        详细规则参考 https://pay.weixin.qq.com/wiki/doc/api/micropay.php?chapter=9_10&index=1
+
+        :param data: body, out_trade_no, total_fee, auth_code, (可选参数 device_info, detail, goods_tag, limit_pay)
+            body: 商品描述
+            *out_trade_no: 商户订单号
+            total_fee: 标价金额, 整数, 单位 分
+            auth_code: 微信支付二维码扫描结果
+            *device_info: 终端设备号(商户自定义，如门店编号)
+            user_ip 在flask框架下可以自动填写, 非flask框架需传入spbill_create_ip
+        :return: 统一下单生成结果
+        """
+        url = "https://api.mch.weixin.qq.com/pay/micropay"
+
+        # 必填参数
+        if "body" not in data:
+            raise WxPayError(u"缺少刷卡支付接口必填参数body")
+        if "total_fee" not in data:
+            raise WxPayError(u"缺少刷卡支付接口必填参数total_fee")
+        if "out_trade_no" not in data:
+            data.setdefault("out_trade_no", self.nonce_str())
+
+        user_ip = self.user_ip_address()
+        if not user_ip and "spbill_create_ip" not in data:
+            raise WxPayError(u"当前未使用flask框架，缺少刷卡支付接口必填参数spbill_create_ip")
+
+        data.setdefault("appid", self.WX_APP_ID)
+        data.setdefault("mch_id", self.WX_MCH_ID)
+        data.setdefault("nonce_str", self.nonce_str())
+        data.setdefault("spbill_create_ip", user_ip)
+        data.setdefault("sign", self.sign(data))
+
+        raw = self.fetch(url, data)
+        if raw["return_code"] == "FAIL":
+            raise WxPayError(raw["return_msg"])
+        err_msg = raw.get("err_code_des")
+        if err_msg:
+            raise WxPayError(err_msg)
         return raw
