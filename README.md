@@ -1,3 +1,4 @@
+#Good Source Code
 # 微信支付
 
 参考文档 [https://pay.weixin.qq.com/wiki/doc/api/jsapi.php](https://pay.weixin.qq.com/wiki/doc/api/jsapi.php)
